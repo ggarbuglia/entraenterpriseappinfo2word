@@ -116,7 +116,7 @@ function Add-WordTable {
 
     $table.Style = 'Table Grid'
     $table.Rows.Item(1).Range.Bold = $true
-    $table.Range.InsertParagraphAfter() | Out-Null
+    $table.AutoFitBehavior(2)
 }
 
 # =======================================================================================
@@ -166,7 +166,7 @@ foreach ($app in $apps | Sort-Object DisplayName) {
     $certs = @()
     if ($appReg.KeyCredentials) {
         foreach ($cert in $appReg.KeyCredentials) {
-            $certs += "Thumbprint: $($cert.KeyId) | Expiry: $($cert.EndDateTime)"
+            $certs += "Thumbprint: $($cert.KeyId) | Expiry: $($cert.EndDateTime.ToString("yyyy-MM-dd"))"
         }
     }
 
