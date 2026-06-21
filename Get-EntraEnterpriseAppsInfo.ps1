@@ -313,11 +313,22 @@ foreach ($app in $apps | Sort-Object DisplayName) {
     # =======================================================================================
     # Extract assignments to users/groups/roles (app role assignments)
     # =======================================================================================
+    $assignedList = @();
     $assignments = Get-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $app.Id -All
-    $assignedList = $assignments | ForEach-Object {
-        "$($_.PrincipalDisplayName) ($($_.PrincipalType))"
+    $assignments | ForEach-Object {
+        $roleDisplay = ''
+
+        if ($_.AppRoleId -and $appReg.AppRoles) {
+            $roleEntry = $appReg.AppRoles | Where-Object { $_.Id -eq $_.AppRoleId }
+            if ($roleEntry) { $roleDisplay = $roleEntry.DisplayName } else { $roleDisplay = $_.AppRoleId }
+        }
+
+        $assignedList += [PSCustomObject]@{
+            Name = $_.PrincipalDisplayName
+            Type = $_.PrincipalType
+            Role = $roleDisplay
+        }
     }
-    # $assignmentCount = $assignedList.Count
 
     $provisioning = if ($app.ServicePrincipalType -eq "EnterpriseApplication") { "Possible / Check Portal" } else { "N/A" }
 
@@ -462,8 +473,11 @@ foreach ($app in $apps | Sort-Object DisplayName) {
         Add-WordParagraph -Document $doc -Text '' -Style 'Normal'
         Add-WordParagraph -Document $doc -Text 'Assignments' -Style 'Heading 1'
         if ($assignedList.Count -gt 0) {
-            $multilineText = ($assignedList | Sort-Object) -join [char]11
-            Add-WordParagraph -Document $doc -Text $multilineText
+            $rows = @()
+            foreach ($assignment in $assignedList) {
+                $rows += , @($assignment.Name, $assignment.Type, $assignment.Role)
+            }
+            Add-WordTable -Document $doc -Headers @('DisplayName', 'Type', 'Role') -Rows $rows
         }
         else {
             Add-WordParagraph -Document $doc -Text 'No assignments found.'
