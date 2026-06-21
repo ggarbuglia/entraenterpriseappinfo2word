@@ -34,7 +34,7 @@ The script requests the following Microsoft Graph scopes:
 2. Run the script:
 
 ```powershell
-.\nGet-EntraEnterpriseAppsInfo.ps1
+.\Get-EntraEnterpriseAppsInfo.ps1
 ```
 
 The script will prompt for Microsoft Graph sign-in if needed.
