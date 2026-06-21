@@ -316,17 +316,14 @@ foreach ($app in $apps | Sort-Object DisplayName) {
     $assignedList = @();
     $assignments = Get-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $app.Id -All
     $assignments | ForEach-Object {
-        $roleDisplay = ''
-
-        if ($_.AppRoleId -and $appReg.AppRoles) {
-            $roleEntry = $appReg.AppRoles | Where-Object { $_.Id -eq $_.AppRoleId }
-            if ($roleEntry) { $roleDisplay = $roleEntry.DisplayName } else { $roleDisplay = $_.AppRoleId }
-        }
+        $roleId = $_.AppRoleId
+        $role = $customRoles | Where-Object { $_.Id -eq $roleId }
+        $roleName = if ($role) { $role.Name } else { "Default" }
 
         $assignedList += [PSCustomObject]@{
             Name = $_.PrincipalDisplayName
             Type = $_.PrincipalType
-            Role = $roleDisplay
+            Role = $roleName
         }
     }
 
