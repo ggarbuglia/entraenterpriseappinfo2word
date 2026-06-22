@@ -99,18 +99,18 @@ function Add-WordTable {
     }
 
     $table = $Document.Tables.Add($Document.Content.Paragraphs.Add().Range, $Rows.Count + 1, $Headers.Count)
+    $table.AllowAutoFit = $false
+
     for ($col = 1; $col -le $Headers.Count; $col++) {
+        $table.Cell(1, $col).WordWrap = $false
         $table.Cell(1, $col).Range.Text = $Headers[$col - 1]
     }
 
     for ($row = 0; $row -lt $Rows.Count; $row++) {
         for ($col = 0; $col -lt $Headers.Count; $col++) {
-            if ($null -ne ($Rows[$row][$col])) {
-                $table.Cell($row + 2, $col + 1).Range.Text = ($Rows[$row][$col]).ToString();
-            }
-            else {
-                $table.Cell($row + 2, $col + 1).Range.Text = '';
-            }
+            $cell = $table.Cell($row + 2, $col + 1)
+            $cell.WordWrap = $false
+            $cell.Range.Text = [string]$Rows[$row][$col]
         }
     }
 
@@ -189,6 +189,7 @@ foreach ($app in $apps | Sort-Object DisplayName) {
                 $desc = ''
                 $name = ''
                 $value = ''
+                $userConsentRequired = $false
 
                 if ($p.Type -eq 'Role') {
                     $entry = $resourceSp.AppRoles | Where-Object { $_.Id -eq $p.Id }
@@ -202,11 +203,12 @@ foreach ($app in $apps | Sort-Object DisplayName) {
                 elseif ($p.Type -eq 'Scope' -or $p.Type -eq 'Scope') {
                     $entry = $resourceSp.Oauth2PermissionScopes | Where-Object { $_.Id -eq $p.Id }
                     if ($entry) {
-                        # oauth2 scopes expose admin consent display/description and value
+                        # oauth2 scopes expose admin and user consent metadata
                         $name = if ($entry.AdminConsentDisplayName) { $entry.AdminConsentDisplayName } else { $entry.Value }
                         $value = $entry.Value
                         $desc = if ($entry.AdminConsentDescription) { $entry.AdminConsentDescription } else { $entry.Description }
                         $isDelegated = $true
+                        $userConsentRequired = if ($entry.UserConsentDescription -or $entry.UserConsentDisplayName) { $true } else { $false }
                     }
                 }
 
@@ -215,13 +217,23 @@ foreach ($app in $apps | Sort-Object DisplayName) {
                 if ($p.Type -eq 'Role') { $adminConsentRequired = $true }
                 elseif ($entry -and ($entry.AdminConsentDescription -or $entry.AdminConsentDisplayName)) { $adminConsentRequired = $true }
 
+                $consentRequired = if ($adminConsentRequired -eq $false -and $userConsentRequired -eq $false) {
+                    "False"
+                }
+                elseif ($adminConsentRequired -eq $true) {
+                    "Admin"
+                }
+                else {
+                    "User"
+                }
+
                 $permissions += [PSCustomObject]@{
-                    API                  = if ($resourceSp) { $resourceSp.DisplayName } else { $perm.ResourceAppId }
-                    Claim                = $value
-                    Permission           = $name
-                    Description          = $desc
-                    IsDelegated          = $isDelegated
-                    AdminConsentRequired = $adminConsentRequired
+                    API             = if ($resourceSp) { $resourceSp.DisplayName } else { $perm.ResourceAppId }
+                    Claim           = $value
+                    Permission      = $name
+                    Description     = $desc
+                    IsDelegated     = $isDelegated
+                    ConsentRequired = $consentRequired
                 }
             }
         }
@@ -426,7 +438,7 @@ foreach ($app in $apps | Sort-Object DisplayName) {
                     $multilineText += '' + [char]11
                     $multilineText += "Name: $($cert.DisplayName)" + [char]11
                     $multilineText += "KeyId: $($cert.KeyId)" + [char]11
-                    $multilineText += "Expiration: $($cert.EndDateTime)" + [char]11
+                    $multilineText += "Expiration: $($cert.EndDateTime.ToString("yyyy-MM-dd"))" + [char]11
                 }
             }
 
@@ -495,7 +507,7 @@ foreach ($app in $apps | Sort-Object DisplayName) {
         if ($permissions.Count -gt 0) {
             $rows = @()
             foreach ($perm in $permissions) {
-                $rows += , @($perm.API, $perm.Claim, $perm.IsDelegated, $perm.AdminConsentRequired)
+                $rows += , @($perm.API, $perm.Claim, $perm.IsDelegated, $perm.ConsentRequired)
             }
             Add-WordTable -Document $doc -Headers @('API', 'Claim', 'Delegated', 'Consent') -Rows $rows
         }
